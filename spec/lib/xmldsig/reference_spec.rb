@@ -48,6 +48,16 @@ describe Xmldsig::Reference do
         should == 'foo'
     end
 
+    it "returns the reference node when using a custom id attribute" do
+      node = document.at_xpath('//*[@ID]')
+      node.remove_attribute('ID')
+      node.set_attribute('MyID', 'foo')
+      reference = Xmldsig::Reference.new(document.at_xpath('//ds:Reference', Xmldsig::NAMESPACES), 'MyID')
+
+      reference.referenced_node.to_s.should ==
+        document.at_xpath("//*[@MyID='foo']").to_s
+    end
+
     it "raises ReferencedNodeNotFound when the refenced node is not present" do
       node = document.at_xpath('//*[@ID]')
       node.remove_attribute('ID')
@@ -55,11 +65,39 @@ describe Xmldsig::Reference do
       expect { reference.referenced_node }.
         to raise_error(Xmldsig::Reference::ReferencedNodeNotFound)
     end
+
+    it "raises ReferencedNodeNotFound when the reference node is malicious" do
+      malicious_document = Nokogiri::XML::Document.parse File.read("spec/fixtures/unsigned-malicious.xml")
+      node = document.at_xpath('//*[@ID]')
+      node.remove_attribute('ID')
+      node.set_attribute('MyID', 'foobar')
+      malicious_reference = Xmldsig::Reference.new(malicious_document.at_xpath('//ds:Reference', Xmldsig::NAMESPACES), 'MyID')
+      expect { malicious_reference.referenced_node }.
+        to raise_error(Xmldsig::Reference::ReferencedNodeNotFound)
+    end
   end
 
   describe "#reference_uri" do
     it "returns the reference uri" do
       reference.reference_uri.should == "#foo"
+    end
+  end
+
+  ["sha1", "sha256", "sha512"].each do |algorithm|
+    describe "digest method #{algorithm}" do
+      let(:document) { Nokogiri::XML::Document.parse File.read("spec/fixtures/unsigned-#{algorithm}.xml") }
+      let(:reference) { Xmldsig::Reference.new(document.at_xpath('//ds:Reference', Xmldsig::NAMESPACES)) }
+
+      it "uses the correct digest algorithm" do
+        case algorithm
+        when "sha512"
+          reference.digest_method.should == Digest::SHA512
+        when "sha256"
+          reference.digest_method.should == Digest::SHA256
+        when "sha1"
+          reference.digest_method.should == Digest::SHA1
+        end
+      end
     end
   end
 end

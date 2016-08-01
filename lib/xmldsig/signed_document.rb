@@ -1,18 +1,31 @@
 module Xmldsig
   class SignedDocument
-    attr_accessor :document
+    attr_accessor :document, :id_attr, :force
 
     def initialize(document, options = {})
-      @document = Nokogiri::XML::Document.parse(document)
+      @document = if document.kind_of?(Nokogiri::XML::Document)
+        document
+      else
+        Nokogiri::XML(document, nil, nil, Nokogiri::XML::ParseOptions::STRICT)
+      end
+      @id_attr  = options[:id_attr] if options[:id_attr]
+      @force    = options[:force]
     end
 
     def validate(certificate = nil, &block)
       signatures.any? && signatures.all? { |signature| signature.valid?(certificate, &block) }
     end
 
-    def sign(private_key = nil, certificate = nil, &block)
-      signatures.each { |signature| signature.sign(private_key, certificate, &block) }
-      @document.to_s
+    def sign(private_key = nil, certificate = nil, instruct = true, &block)
+      signatures.reverse.each do |signature|
+        signature.sign(private_key, certificate, &block) if signature.unsigned? || force
+      end
+
+      if instruct
+        @document.to_xml(save_with: Nokogiri::XML::Node::SaveOptions::AS_XML)
+      else
+        @document.to_xml(save_with: Nokogiri::XML::Node::SaveOptions::AS_XML | Nokogiri::XML::Node::SaveOptions::NO_DECLARATION)
+      end
     end
 
     def signed_nodes
@@ -20,7 +33,9 @@ module Xmldsig
     end
 
     def signatures
-      document.xpath("//ds:Signature", NAMESPACES).reverse.collect { |node| Signature.new(node) } || []
+      document.xpath("//ds:Signature", NAMESPACES).
+          sort { |left, right| left.ancestors.size <=> right.ancestors.size }.
+          collect { |node| Signature.new(node, @id_attr) } || []
     end
   end
 end

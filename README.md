@@ -65,7 +65,15 @@ signed_document = Xmldsig::SignedDocument.new(signed_xml)
 signed_document.validate do |signature_value, data|
   certificate.public_key.verify(OpenSSL::Digest::SHA256.new, signature_value, data)
 end
+
+# Custom ID attribute
+signed_document = Xmldsig::SignedDocument.new(signed_xml, id_attr: "MyID")
+signed_document.validate(certificate)
 ```
+
+## Known issues
+
+1. Windows in app purchase verification requires extra whitespace removal: https://github.com/benoist/xmldsig/issues/13
 
 ## Contributing
 

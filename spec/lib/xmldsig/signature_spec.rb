@@ -74,7 +74,7 @@ describe Xmldsig::Signature do
 
   describe "#valid?" do
     it "returns true with the correct certificate" do
-      signature.valid?(certificate).should be_true
+      signature.valid?(certificate).should be == true
     end
 
     it "returns false if the xml changed" do
@@ -86,7 +86,7 @@ describe Xmldsig::Signature do
     end
 
     it "returns false with a difference certificate" do
-      signature.valid?(other_certificate).should be_false
+      signature.valid?(other_certificate).should be == false
     end
 
     it "accepts a block" do
@@ -98,7 +98,6 @@ describe Xmldsig::Signature do
     end
   end
 
-
   describe "signing with an optional certificate" do
     let(:document) { Nokogiri::XML::Document.parse File.read("spec/fixtures/unsigned_certificate.xml") }
     let(:signature_node) { document.at_xpath("//ds:Signature", Xmldsig::NAMESPACES) }
@@ -107,6 +106,26 @@ describe Xmldsig::Signature do
     it "sets the signature value" do
       signature.sign(private_key, certificate)
       signature.x509_certificate.should eq("MIICgjCCAeugAwIBAgIBADANBgkqhkiG9w0BAQUFADA6MQswCQYDVQQGEwJCRTENMAsGA1UECgwEVGVzdDENMAsGA1UECwwEVGVzdDENMAsGA1UEAwwEVGVzdDAeFw0xMzAxMTMxNTMzNDNaFw0xNDAxMTMxNTMzNDNaMDoxCzAJBgNVBAYTAkJFMQ0wCwYDVQQKDARUZXN0MQ0wCwYDVQQLDARUZXN0MQ0wCwYDVQQDDARUZXN0MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQC37C0mhTmdr8iVfQPQuOKtzG/fhwG4ILuUX1Vk5uN9oSZJxhb5Kn8aBppny1BSekgk12wn4AE/6i7Jfix3SZWoqdaxpdDalvQSdNeyn6GmV2oP4lzp6XjXmtRxvOywgTYuhf/DBlpiq7B/vTF7kMwYgs0ahM3mRJG2V7LARTXUfwIDAQABo4GXMIGUMA8GA1UdEwEB/wQFMAMBAf8wHQYDVR0OBBYEFBRkMx3ZwHO3Zog0pWdYNB38NRmWMGIGA1UdIwRbMFmAFBRkMx3ZwHO3Zog0pWdYNB38NRmWoT6kPDA6MQswCQYDVQQGEwJCRTENMAsGA1UECgwEVGVzdDENMAsGA1UECwwEVGVzdDENMAsGA1UEAwwEVGVzdIIBADANBgkqhkiG9w0BAQUFAAOBgQBs8voSBDgN7HL1i5EP+G/ymWUVenpGvRZCnfkR9Wo4ORzj1Y7ohXHooOzDJ2oi0yDwatXnPpe3hauqQDid6d4i7F1Wpgdo2MibqXP8/DPzhuBARvPSzip+yS6ITjqKN/YN4K+kpja2Sh7DdxWND3opvVHZTXywjZpdF1OsmNhOCg==")
+    end
+  end
+  
+  ["sha1", "sha256", "sha384", "sha512"].each do |algorithm|
+    describe "sign method #{algorithm}" do
+      let(:document) { Nokogiri::XML::Document.parse File.read("spec/fixtures/unsigned-#{algorithm}.xml") }
+      let(:signature_node) { document.at_xpath("//ds:Signature", Xmldsig::NAMESPACES) }
+      let(:signature) { Xmldsig::Signature.new(signature_node) }
+
+      it "uses the correct signature algorithm" do
+        signature.sign do |data, signature_algorithm|
+          case algorithm
+          when "sha1"
+            signature_algorithm.should == "http://www.w3.org/2000/09/xmldsig#rsa-#{algorithm}"
+          else
+            signature_algorithm.should == "http://www.w3.org/2001/04/xmldsig-more#rsa-#{algorithm}"
+          end
+          private_key.sign(OpenSSL::Digest.new(algorithm).new, data)
+        end
+      end
     end
   end
 end
