@@ -134,7 +134,6 @@ describe Xmldsig::SignedDocument do
         signed_document.signatures.last.signature_value.should be != unsigned_document.signatures.last.signature_value
       end
     end
-  end
 
   describe "Nested Signatures" do
     let(:unsigned_xml) { File.read("spec/fixtures/unsigned_nested_signature.xml") }
@@ -155,5 +154,4 @@ describe Xmldsig::SignedDocument do
       unsigned_document.signatures.last.valid?(certificate).should be == true
     end
   end
-
 end
